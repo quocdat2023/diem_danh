@@ -6,7 +6,7 @@ import face_recognition
 import numpy as np
 from datetime import datetime
 from pymongo import MongoClient
-from pymongo.errors import ConnectionError
+from pymongo.errors import ConnectionFailure
 from io import BytesIO
 from PIL import Image
 import logging
@@ -33,7 +33,7 @@ try:
     db = client['attendance_db']
     db['students'].create_index([('student_id', 1)], unique=True)  # Ensure unique student_id
     db['attendance'].create_index([('student_id', 1), ('date', 1)])
-except ConnectionError as e:
+except ConnectionFailure as e:
     logger.error(f"Failed to connect to MongoDB: {str(e)}")
     raise Exception("Cannot connect to MongoDB")
 

@@ -251,7 +251,7 @@
                     showAlert('Đăng ký thành công!', 'success');
                     setTimeout(() => window.location.href = '/', 2000);
                 } else {
-                    showAlert(result.error || 'Đăng ký thất bại. Vui lòng thử lại.');
+                    showAlert(result.error || 'Đăng ký thất bại. Vui lòng thử lại ở nơi có ánh sáng tốt hơn.', 'danger');
                 }
             } catch (err) {
                 console.error('Fetch error:', err);
