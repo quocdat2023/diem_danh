@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -87,7 +88,7 @@ async def check_student(student_id: str):
     raise HTTPException(status_code=404, detail="Student not found")
 
 @app.post("/api/register")
-async def register(student_id: str = Form(...), name: str = Form(...), image_files: list[UploadFile] = File(...)):
+async def register(student_id: str = Form(...), name: str = Form(...), image_files: List[UploadFile] = File(...)):
     try:
         encodings = []
         for file in image_files:
