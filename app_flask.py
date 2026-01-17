@@ -14,20 +14,45 @@ def index():
 def register_page():
     return render_template('register.html')
 
+@app.route('/train')
+def train_page():
+    return render_template('train.html')
+
+
+
 @app.route('/capture', methods=['POST'])
 def capture():
     try:
         image_data = request.form.get('image')
+        shift = request.form.get('shift')
         if not image_data:
             return jsonify({'error': 'No image provided'}), 400
+        if not shift:
+            return jsonify({'error': 'Shift is required'}), 400
+            
         image_bytes = base64.b64decode(image_data.split(',')[1])
         response = requests.post(
             'http://localhost:8000/api/attendance/checkin',
-            files={'file': ('image.jpg', image_bytes, 'image/jpeg')}
+            files={'file': ('image.jpg', image_bytes, 'image/jpeg')},
+            data={'shift': shift}
         )
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({'error': f'Failed to process capture: {str(e)}'}), 500
+
+@app.route('/stats')
+def stats_page():
+    return render_template('stats.html')
+
+@app.route('/attendance/<record_id>', methods=['DELETE'])
+def delete_attendance(record_id):
+    try:
+        response = requests.delete(f'http://localhost:8000/api/attendance/{record_id}')
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete record: {str(e)}'}), 500
+
+
 
 @app.route('/register_student', methods=['POST'])
 def register_student():
@@ -41,19 +66,26 @@ def register_student():
         if not image_files and not request.form.get('image_files'):
             return jsonify({'error': 'At least one image is required'}), 400
 
-        # Check for duplicate student_id
-        check_response = requests.get(f'http://localhost:8000/api/student/{student_id}')
-        if check_response.status_code == 200:
-            return jsonify({'error': 'Student ID already exists'}), 400
+        # Read files into memory to avoid stream issues with requests
+        files = []
+        for f in image_files:
+            if f:
+                content = f.read()
+                files.append(('image_files', (secure_filename(f.filename), content, f.mimetype)))
 
-        files = [(f'image_files', (secure_filename(f.filename), f.stream, f.mimetype)) for f in image_files if f]
+        # Send to FastAPI
+        # FastAPI will handle duplicate check via MongoDB constraints
         response = requests.post(
             'http://localhost:8000/api/register',
             data={'student_id': student_id, 'name': name},
             files=files
         )
+        
+        # If FastAPI returns error (e.g. 400 duplicate), forward it
         return jsonify(response.json()), response.status_code
+
     except Exception as e:
+        print(f"Error in register_student: {e}") # Debug log to console
         return jsonify({'error': f'Failed to register student: {str(e)}'}), 500
 
 @app.route('/attendance')
@@ -64,5 +96,22 @@ def attendance():
     except Exception as e:
         return jsonify({'error': f'Failed to fetch attendance: {str(e)}'}), 500
 
+@app.route('/students', methods=['GET'])
+def get_students():
+    try:
+        response = requests.get('http://localhost:8000/api/students')
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch students: {str(e)}'}), 500
+
+@app.route('/student/<student_id>', methods=['DELETE'])
+def delete_student(student_id):
+    try:
+        response = requests.delete(f'http://localhost:8000/api/student/{student_id}')
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete student: {str(e)}'}), 500
+
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    port = int(os.environ.get('PORT', 7860))
+    app.run(host='0.0.0.0', port=port, debug=False)

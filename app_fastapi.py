@@ -11,6 +11,7 @@ from pymongo.errors import ConnectionFailure
 from io import BytesIO
 from PIL import Image
 import logging
+from bson.objectid import ObjectId
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,20 +62,31 @@ class Student:
     def find_by_id(cls, student_id):
         return cls.collection.find_one({'student_id': student_id})
 
+    @classmethod
+    def delete(cls, student_id):
+        result = cls.collection.delete_one({'student_id': student_id})
+        return result.deleted_count > 0
+
 class Attendance:
     collection = db['attendance']
 
     @classmethod
-    def create(cls, student_id, date):
+    def create(cls, student_id, date, shift):
         cls.collection.insert_one({
             'student_id': student_id,
             'date': date,
+            'shift': shift,
             'status': 'Present'
         })
 
     @classmethod
     def get_all(cls):
-        return list(cls.collection.find())
+        return list(cls.collection.find().sort('date', -1))
+
+    @classmethod
+    def delete(cls, record_id):
+        result = cls.collection.delete_one({'_id': ObjectId(record_id)})
+        return result.deleted_count > 0
 
 @app.get("/")
 async def serve_frontend():
@@ -114,8 +126,14 @@ async def register(student_id: str = Form(...), name: str = Form(...), image_fil
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/attendance/checkin")
-async def checkin(file: UploadFile = File(...)):
+async def checkin(file: UploadFile = File(...), shift: str = Form(...)):
     try:
+        now = datetime.now()
+        
+        # 1. Check Day: Mon(0), Wed(2), Fri(4)
+        if now.weekday() not in [0, 2, 4, 5]:
+             raise HTTPException(status_code=400, detail="Attendance is only allowed on Monday, Wednesday, and Friday.")
+
         if file.size > 5 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File exceeds 5MB")
         contents = await file.read()
@@ -132,10 +150,25 @@ async def checkin(file: UploadFile = File(...)):
                 stored_encoding = np.array(stored_encoding)
                 results = face_recognition.compare_faces([stored_encoding], encodings[0])
                 if results[0]:
-                    Attendance.create(student['student_id'], datetime.now())
-                    logger.info(f"Attendance recorded for student: {student['student_id']}")
-                    return {"message": "Attendance recorded", "student": student['name']}
+                    # 2. Check Duplicate for Shift/Day
+                    start_of_day = datetime(now.year, now.month, now.day)
+                    end_of_day = start_of_day + __import__('datetime').timedelta(days=1)
+                    
+                    existing = Attendance.collection.find_one({
+                        'student_id': student['student_id'],
+                        'shift': shift,
+                        'date': {'$gte': start_of_day, '$lt': end_of_day}
+                    })
+                    
+                    if existing:
+                         raise HTTPException(status_code=400, detail=f"{student['name']} Already checked in for {shift} today.")
+
+                    Attendance.create(student['student_id'], now, shift)
+                    logger.info(f"Attendance recorded for student: {student['student_id']} in {shift}") 
+                    return {"message": "Attendance recorded", "student": student['name'], "shift": shift}
         raise HTTPException(status_code=404, detail="Student not found")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in /api/attendance/checkin: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -148,9 +181,11 @@ async def get_attendance():
         for att in attendances:
             student = Student.find_by_id(att['student_id'])
             result.append({
+                'id': str(att['_id']),
                 'id_student': att['student_id'],
                 'student_name': student['name'] if student else 'Unknown',
                 'date': att['date'].isoformat(),
+                'shift': att.get('shift', 'Unknown'), # Handle legacy data
                 'status': att['status']
             })
         logger.info("Fetched attendance list")
@@ -158,6 +193,39 @@ async def get_attendance():
     except Exception as e:
         logger.error(f"Error in /api/attendance/list: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/attendance/{record_id}")
+async def delete_attendance(record_id: str):
+    try:
+        if Attendance.delete(record_id):
+             return {"message": "Record deleted"}
+        raise HTTPException(status_code=404, detail="Record not found")
+    except Exception as e:
+        logger.error(f"Error in /api/attendance/{record_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/students")
+async def get_students():
+    try:
+        students = Student.get_all()
+        return [{"student_id": s['student_id'], "name": s['name']} for s in students]
+    except Exception as e:
+        logger.error(f"Error in /api/students: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/student/{student_id}")
+async def delete_student(student_id: str):
+    try:
+        if Student.delete(student_id):
+            logger.info(f"Deleted student: {student_id}")
+            return {"message": "Student deleted successfully"}
+        raise HTTPException(status_code=404, detail="Student not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in /api/student/{student_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == '__main__':
     import uvicorn

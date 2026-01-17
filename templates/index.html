@@ -4,48 +4,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống điểm danh nhận diện khuôn mặt</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Face Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
     <style>
-        .video-container {
-            position: relative;
-            max-width: 100%;
+        body {
+            font-family: 'Outfit', sans-serif;
         }
 
-        canvas {
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .scan-line {
             position: absolute;
+            width: 100%;
+            height: 4px;
+            background: #3b82f6;
+            box-shadow: 0 0 10px #3b82f6;
+            animation: scan 2s linear infinite;
             top: 0;
-            left: 0;
+            opacity: 0.6;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0%;
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
         }
     </style>
-    <script src="https://www.rocksetta.com/tensorflowjs/saved-models/face-api-js/face-api.js"></script>
-    <link href="/static/css/styles.css" rel="stylesheet">
-    <script src="/static/js/index_script.js" defer></script>
 </head>
 
-<body>
-    <div class="container mt-5">
-        <h1 class="text-center">Hệ thống điểm danh nhận diện khuôn mặt</h1>
-        <div class="row mb-3">
-            <div class="col text-center">
-                <a href="/register" class="btn btn-success">Đăng ký học sinh mới</a>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="video-container">
-                    <video id="video" width="640" height="480" autoplay muted></video>
-                    <canvas id="overlay"></canvas>
+<body class="bg-gradient-to-br from-slate-100 to-blue-50 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 w-full z-50 glass border-b border-white/40">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg">
+                    <i data-lucide="scan-face"></i>
                 </div>
-                <button id="capture" class="btn btn-primary mt-3">Chụp ảnh và điểm danh</button>
+                <h1
+                    class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                    SmartAttendance</h1>
             </div>
-            <div class="col-md-6">
-                <h3>Danh sách điểm danh</h3>
-                <ul id="attendanceList" class="list-group"></ul>
+            <div class="flex items-center gap-4">
+                <a href="/stats"
+                    class="text-sm font-medium text-slate-500 hover:text-blue-600 transition flex items-center gap-2">
+                    <i data-lucide="bar-chart"></i> Statistics
+                </a>
+                <a href="/train"
+                    class="text-sm font-medium text-slate-500 hover:text-blue-600 transition flex items-center gap-2">
+                    <i data-lucide="settings"></i> Manage Data
+                </a>
+                <div class="h-4 w-[1px] bg-slate-300"></div>
+                <div id="clock" class="text-sm font-mono font-semibold text-slate-600">00:00:00</div>
             </div>
         </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center p-6 pt-24 gap-8">
+
+        <!-- Status Card Removed -->
+
+        <!-- Camera Container -->
+        <div
+            class="relative w-full max-w-2xl aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-black group">
+            <video id="webcam" class="w-full h-full object-cover transform scale-x-[-1]" autoplay muted
+                playsinline></video>
+
+            <!-- Overlay Scanning UI -->
+            <div class="absolute inset-0 pointer-events-none">
+                <!-- Corners -->
+                <div class="absolute top-8 left-8 w-16 h-16 border-t-4 border-l-4 border-white/50 rounded-tl-2xl"></div>
+                <div class="absolute top-8 right-8 w-16 h-16 border-t-4 border-r-4 border-white/50 rounded-tr-2xl">
+                </div>
+                <div class="absolute bottom-8 left-8 w-16 h-16 border-b-4 border-l-4 border-white/50 rounded-bl-2xl">
+                </div>
+                <div class="absolute bottom-8 right-8 w-16 h-16 border-b-4 border-r-4 border-white/50 rounded-br-2xl">
+                </div>
+
+                <!-- Center Focus -->
+                <div
+                    class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-white/20 rounded-full flex items-center justify-center">
+                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                </div>
+
+                <!-- Scan Line -->
+                <div class="scan-line hidden" id="scanLine"></div>
+            </div>
+        </div>
+
+        <!-- Shift and Controls -->
+        <div class="flex flex-col items-center gap-4">
+            <div class="relative">
+                <select id="shiftSelect"
+                    class="appearance-none bg-white border border-slate-300 text-slate-700 py-3 px-10 rounded-xl leading-tight focus:outline-none focus:border-blue-500 shadow-sm font-medium">
+                    <option value="" disabled selected>Select Shift</option>
+                    <option value="Ca 1">Ca 1 (Shift 1)</option>
+                    <option value="Ca 2">Ca 2 (Shift 2)</option>
+                    <option value="Ca 3">Ca 3 (Shift 3)</option>
+                    <option value="Ca 4">Ca 4 (Shift 4)</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </div>
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-slate-500">
+                    <i data-lucide="clock" class="w-4 h-4"></i>
+                </div>
+            </div>
+
+            <button id="toggleBtn"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-blue-500/30 transition active:scale-95 flex items-center gap-2">
+                <i data-lucide="play"></i> Start Camera
+            </button>
+        </div>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></script>
+    <script src="/static/js/index_script.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 
 </html>
