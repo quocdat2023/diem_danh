@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Main application container (All-in-one style matching HF Space)
+  app:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      - PORT=7860
+      - MONGO_URI=mongodb+srv://quocdatforwok:xElw88TXsUE8yhK6@cluster0.u4znq.mongodb.net/?appName=Cluster0
+    volumes:
+      - .:/app
+      - mongo_data:/data/db
+  # Alternative: If you wanted to separate them locally, you would do:
+  # app-separate:
+  #   build: .
+  #   command: python app_flask.py # And run start.sh differently
+  #   environment:
+  #     - MONGO_URI=mongodb://mongo:27017
+  #   depends_on:
+  #     - mongo
+  #
+  # mongo:
+  #   image: mongo:6.0
+  #   ports:
+  #     - "27017:27017"
+
+volumes:
+  mongo_data:

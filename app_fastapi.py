@@ -29,8 +29,10 @@ app.add_middleware(
 )
 
 # MongoDB connection with error handling
+import os
 try:
-    client = MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=5000)
+    mongo_uri = os.getenv('MONGO_URI', 'mongodb+srv://quocdatforwok:xElw88TXsUE8yhK6@cluster0.u4znq.mongodb.net/?appName=Cluster0')
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
     client.server_info()  # Test connection
     db = client['attendance_db']
     db['students'].create_index([('student_id', 1)], unique=True)  # Ensure unique student_id

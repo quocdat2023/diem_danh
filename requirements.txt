@@ -6,3 +6,9 @@ pillow==10.0.0
 flask==3.0.0
 requests==2.31.0
 python-multipart==0.0.6
+cmake==3.27.0
+# dlib==19.24.2  <-- Removing fixed version
+git+https://github.com/davisking/dlib.git
+pytest
+httpx
+dnspython
