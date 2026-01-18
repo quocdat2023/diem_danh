@@ -112,6 +112,39 @@ def delete_student(student_id):
     except Exception as e:
         return jsonify({'error': f'Failed to delete student: {str(e)}'}), 500
 
+    except Exception as e:
+        return jsonify({'error': f'Failed to delete student: {str(e)}'}), 500
+
+@app.route('/predict_face', methods=['POST'])
+def predict_face():
+    try:
+        image_data = request.form.get('image')
+        if not image_data:
+            return jsonify({'error': 'No image provided'}), 400
+
+        # Decode base64
+        header, encoded = image_data.split(',', 1)
+        image_bytes = base64.b64decode(encoded)
+
+        # Forward to FastAPI
+        response = requests.post(
+            'http://localhost:8000/api/predict',
+            files={'file': ('capture.jpg', image_bytes, 'image/jpeg')}
+        )
+        
+        return jsonify(response.json()), response.status_code
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to predict: {str(e)}'}), 500
+
+@app.route('/faces', methods=['GET'])
+def get_faces():
+    try:
+        response = requests.get('http://localhost:8000/api/faces')
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({'error': f'Failed to fetch faces: {str(e)}'}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 7860))
     app.run(host='0.0.0.0', port=port, debug=False)

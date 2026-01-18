@@ -9,6 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="/static/js/face-api.min.js"></script>
     <script src="/static/js/train_script.js" defer></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,6 +42,18 @@
         .toggle-checkbox:checked+.toggle-label {
             background-color: #1967D2;
         }
+
+        /* Hide Scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
+        }
     </style>
 </head>
 
@@ -72,14 +85,6 @@
                     class="border-2 border-dashed border-slate-300 rounded-xl py-5 w-full max-w-[380px] text-center text-slate-500 hover:border-blue-400 hover:text-blue-500 transition bg-white/50">
                     + Add a class
                 </button>
-
-                <div class="w-full max-w-[380px] mt-10">
-                    <h3 class="text-slate-500 font-semibold mb-4 uppercase text-xs tracking-wider">Registered Students
-                    </h3>
-                    <div id="registeredUsersList" class="flex flex-col gap-3">
-                        <!-- Loaded via JS -->
-                    </div>
-                </div>
             </div>
 
             <!-- COLUMN 2 : TRAINING -->
@@ -115,8 +120,8 @@
                         </div>
                     </div>
                     <div class="flex-1 bg-black relative">
-                        <video id="previewVideo" class="w-full h-full object-cover transform scale-x-[-1]" autoplay
-                            muted playsinline></video>
+                        <video id="previewVideo" class="w-full h-full object-fill transform scale-x-[-1]" autoplay muted
+                            playsinline></video>
                         <!-- Canvas overlay for boxes -->
                         <canvas id="previewCanvas" class="absolute inset-0 pointer-events-none"></canvas>
 
@@ -155,7 +160,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <button
                             class="webcam-btn bg-[#e8f0fe] py-6 rounded-lg text-[#1967d2] hover:bg-[#d2e3fc] flex flex-col items-center gap-2 transition">
-                            <i data-lucide="webcam"></i> <span class="text-sm font-medium">Webcam</span>
+                            <i class="fa fa-camera"></i><span class="text-sm font-medium">Webcam</span>
                         </button>
                         <!-- <button
                             class="upload-btn bg-[#e8f0fe] py-6 rounded-lg text-[#1967d2] hover:bg-[#d2e3fc] flex flex-col items-center gap-2 transition opacity-50 cursor-not-allowed"

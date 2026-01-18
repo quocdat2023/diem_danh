@@ -31,7 +31,7 @@ app.add_middleware(
 # MongoDB connection with error handling
 import os
 try:
-    mongo_uri = os.getenv('MONGO_URI', 'mongodb+srv://quocdatforwok:xElw88TXsUE8yhK6@cluster0.u4znq.mongodb.net/?appName=Cluster0')
+    mongo_uri = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
     client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
     client.server_info()  # Test connection
     db = client['attendance_db']
@@ -133,7 +133,7 @@ async def checkin(file: UploadFile = File(...), shift: str = Form(...)):
         now = datetime.now()
         
         # 1. Check Day: Mon(0), Wed(2), Fri(4)
-        if now.weekday() not in [0, 2, 4, 5]:
+        if now.weekday() not in [0,1,2,3,4,5,6]:
              raise HTTPException(status_code=400, detail="Attendance is only allowed on Monday, Wednesday, and Friday.")
 
         if file.size > 5 * 1024 * 1024:
@@ -228,6 +228,58 @@ async def delete_student(student_id: str):
         logger.error(f"Error in /api/student/{student_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/predict")
+async def predict_identity(file: UploadFile = File(...)):
+    try:
+        if file.size > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File exceeds 5MB")
+            
+        contents = await file.read()
+        image = Image.open(BytesIO(contents))
+        image = image.resize((640, 480), Image.LANCZOS)
+        image_array = np.array(image)
+        
+        # Get encodings
+        encodings = face_recognition.face_encodings(image_array)
+        if not encodings:
+            return {"match": False, "name": "Unknown"}
+            
+        target_encoding = encodings[0]
+        students = Student.get_all()
+        
+        best_match_name = "Unknown"
+        min_dist = 0.5 # Strict threshold
+        
+        for student in students:
+            for stored_encoding in student['face_encodings']:
+                stored_encoding = np.array(stored_encoding)
+                dist = face_recognition.face_distance([stored_encoding], target_encoding)[0]
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    best_match_name = student['name']
+                    
+        return {"match": True, "name": best_match_name, "distance": float(min_dist)}
+
+    except Exception as e:
+        logger.error(f"Error in /api/predict: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/faces")
+async def get_faces():
+    try:
+        students = Student.get_all()
+        faces = []
+        for s in students:
+            if 'face_encodings' in s and s['face_encodings']:
+                faces.append({
+                    "label": s['name'],
+                    "descriptors": s['face_encodings']
+                })
+        return faces
+    except Exception as e:
+        logger.error(f"Error in /api/faces: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
     import uvicorn
