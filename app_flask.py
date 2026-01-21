@@ -18,8 +18,6 @@ def register_page():
 def train_page():
     return render_template('train.html')
 
-
-
 @app.route('/capture', methods=['POST'])
 def capture():
     try:
