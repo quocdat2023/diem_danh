@@ -147,27 +147,39 @@ async def checkin(file: UploadFile = File(...), shift: str = Form(...)):
             raise HTTPException(status_code=400, detail="No faces detected")
 
         students = Student.get_all()
+        best_match_student = None
+        min_dist = 0.45  # Stricter threshold to prevent misidentification (lower is stricter)
+
         for student in students:
             for stored_encoding in student['face_encodings']:
                 stored_encoding = np.array(stored_encoding)
-                results = face_recognition.compare_faces([stored_encoding], encodings[0])
-                if results[0]:
-                    # 2. Check Duplicate for Shift/Day
-                    start_of_day = datetime(now.year, now.month, now.day)
-                    end_of_day = start_of_day + __import__('datetime').timedelta(days=1)
-                    
-                    existing = Attendance.collection.find_one({
-                        'student_id': student['student_id'],
-                        'shift': shift,
-                        'date': {'$gte': start_of_day, '$lt': end_of_day}
-                    })
-                    
-                    if existing:
-                         raise HTTPException(status_code=400, detail=f"{student['name']} Already checked in for {shift} today.")
+                # Calculate distance
+                dist = face_recognition.face_distance([stored_encoding], encodings[0])[0]
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    best_match_student = student
 
-                    Attendance.create(student['student_id'], now, shift)
-                    logger.info(f"Attendance recorded for student: {student['student_id']} in {shift}") 
-                    return {"message": "Attendance recorded", "student": student['name'], "shift": shift}
+        if best_match_student:
+            student = best_match_student
+            # 2. Check Duplicate for Shift/Day
+            start_of_day = datetime(now.year, now.month, now.day)
+            end_of_day = start_of_day + __import__('datetime').timedelta(days=1)
+            
+            existing = Attendance.collection.find_one({
+                'student_id': student['student_id'],
+                'shift': shift,
+                'date': {'$gte': start_of_day, '$lt': end_of_day}
+            })
+            
+            if existing:
+                    raise HTTPException(status_code=400, detail=f"{student['name']} Already checked in for {shift} today.")
+
+            Attendance.create(student['student_id'], now, shift)
+            logger.info(f"Attendance recorded for student: {student['student_id']} in {shift} (Distance: {min_dist})") 
+            return {"message": "Attendance recorded", "student": student['name'], "shift": shift}
+        
+        # If no match found within threshold
         raise HTTPException(status_code=404, detail="Student not found")
     except HTTPException:
         raise
@@ -248,7 +260,7 @@ async def predict_identity(file: UploadFile = File(...)):
         students = Student.get_all()
         
         best_match_name = "Unknown"
-        min_dist = 0.5 # Strict threshold
+        min_dist = 0.45# Strict threshold
         
         for student in students:
             for stored_encoding in student['face_encodings']:

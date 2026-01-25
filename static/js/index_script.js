@@ -133,6 +133,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     // Show specific error (e.g. "Already checked in" or "Wrong Day")
                     let msg = data.detail || data.error || "Unknown Error";
+
+                    if (msg === "Student not found") {
+                        msg = "Gương mặt không nhận diện được do không có trong database";
+                    }
+
                     // If detailed error is object, try to parse
                     showToast(msg, 'error');
                 }
